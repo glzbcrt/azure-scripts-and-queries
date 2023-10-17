@@ -1,0 +1,14 @@
+// Return the total *external* (according to RFC1918) ingress and egress traffic for the storage accounts blob and file services.
+union StorageBlobLogs, StorageFileLogs
+| extend sourceIp = iif(indexof(CallerIpAddress, ":") == -1, CallerIpAddress, substring(CallerIpAddress, 0, indexof(CallerIpAddress, ":")))
+| where not(ipv4_is_in_range(sourceIp, "10.0.0.0/8")) and not(ipv4_is_in_range(sourceIp, "172.16.0.0/12")) and not(ipv4_is_in_range(sourceIp, "192.168.0.0/16"))
+| extend ingress = (coalesce(RequestHeaderSize, 0) + coalesce(RequestBodySize, 0)), egress = (coalesce(ResponseHeaderSize, 0) + coalesce(ResponseBodySize, 0))
+| summarize ingress=format_bytes(sum(ingress), 2), egress=format_bytes(sum(egress), 2)
+
+// Return the total (ingress + egress) *external* traffic (according to RFC1918) for the storage accounts blob and file services.
+union StorageBlobLogs, StorageFileLogs
+| extend sourceIp = iif(indexof(CallerIpAddress, ":") == -1, CallerIpAddress, substring(CallerIpAddress, 0, indexof(CallerIpAddress, ":")))
+| where not(ipv4_is_in_range(sourceIp, "10.0.0.0/8")) and not(ipv4_is_in_range(sourceIp, "172.16.0.0/12")) and not(ipv4_is_in_range(sourceIp, "192.168.0.0/16"))
+| extend io = (coalesce(RequestHeaderSize, 0) + coalesce(RequestBodySize, 0)) + (coalesce(ResponseHeaderSize, 0) + coalesce(ResponseBodySize, 0))
+| summarize total_io=format_bytes(sum(io), 2), bytes=sum(io) by AccountName
+| order by bytes desc
